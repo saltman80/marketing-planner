@@ -1,0 +1,68 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Session Policy - Marketing Planner</title>
+  <link rel="stylesheet" href="defineDesignSystem.css">
+</head>
+<body>
+  <header>
+    <nav class="navbar">
+      <a href="index.html" class="navbar__brand">Marketing Planner</a>
+      <ul class="navbar__menu">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="sessionPolicyPage.html" class="active">Session Policy</a></li>
+        <li><a href="privacy-policy.html">Privacy Policy</a></li>
+        <li><a href="contact.html">Contact</a></li>
+      </ul>
+    </nav>
+  </header>
+  <main class="container">
+    <h1>Session Policy</h1>
+    <p>This page explains how we handle data stored in your browser session while using Marketing Planner.</p>
+    <section>
+      <h2>Session Data Storage</h2>
+      <p>All your inputs and generated checklists are stored only in your browser?s sessionStorage. Closing the browser or clearing session storage will remove all data.</p>
+    </section>
+    <section>
+      <h2>Your Session Duration</h2>
+      <p>Time since you started this session: <span id="session-duration" aria-live="polite">00:00:00</span></p>
+    </section>
+    <button id="clear-session" type="button" class="btn">Clear Session Data</button>
+  </main>
+  <footer class="footer">
+    <p>&copy; <span id="year"></span> Marketing Planner. All rights reserved.</p>
+  </footer>
+  <script>
+    function init() {
+      const SESSION_KEY = 'sessionStart';
+      let storedValue = sessionStorage.getItem(SESSION_KEY);
+      let startTime = Number(storedValue);
+      if (!storedValue || isNaN(startTime)) {
+        startTime = Date.now();
+        sessionStorage.setItem(SESSION_KEY, startTime.toString());
+      }
+      const durationEl = document.getElementById('session-duration');
+      const yearEl = document.getElementById('year');
+      yearEl.textContent = new Date().getFullYear();
+      function updateDuration() {
+        const elapsed = Date.now() - startTime;
+        const hrs = Math.floor(elapsed / 3600000);
+        const mins = Math.floor((elapsed % 3600000) / 60000);
+        const secs = Math.floor((elapsed % 60000) / 1000);
+        durationEl.textContent =
+          String(hrs).padStart(2, '0') + ':' +
+          String(mins).padStart(2, '0') + ':' +
+          String(secs).padStart(2, '0');
+      }
+      updateDuration();
+      setInterval(updateDuration, 1000);
+      document.getElementById('clear-session').addEventListener('click', () => {
+        sessionStorage.removeItem(SESSION_KEY);
+        location.reload();
+      });
+    }
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
