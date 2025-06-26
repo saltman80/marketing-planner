@@ -1,0 +1,164 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Confirm File Addition</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    #dialog {
+      background: #fff;
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+      max-width: 90%;
+      width: 360px;
+      text-align: center;
+    }
+    #dialog h2 {
+      margin: 0 0 12px;
+      font-size: 1.25rem;
+    }
+    #dialog p {
+      margin: 0 0 20px;
+      font-size: 1rem;
+      color: #333;
+    }
+    #buttons {
+      display: flex;
+      justify-content: space-between;
+    }
+    button {
+      flex: 1;
+      margin: 0 8px;
+      padding: 10px 0;
+      font-size: 1rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #confirmBtn {
+      background-color: #4CAF50;
+      color: #fff;
+    }
+    #cancelBtn {
+      background-color: #f44336;
+      color: #fff;
+    }
+    @media (max-width: 400px) {
+      #dialog {
+        width: 90%;
+      }
+      button {
+        margin: 0 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="dialog" role="dialog" aria-modal="true" aria-labelledby="title" aria-describedby="message">
+    <h2 id="title">Confirm Addition</h2>
+    <p id="message">Do you want to add this file to your project?</p>
+    <div id="buttons">
+      <button id="confirmBtn" type="button">Yes</button>
+      <button id="cancelBtn" type="button">No</button>
+    </div>
+  </div>
+  <script>
+    (function() {
+      function init() {
+        const params = new URLSearchParams(window.location.search);
+        const fileName = params.get('fileName') || 'this file';
+        document.getElementById('message').textContent = `Do you want to add "${fileName}" to your project?`;
+
+        const rawOrigin = params.get('targetOrigin');
+        let targetOrigin;
+        if (rawOrigin) {
+          try {
+            const parsed = new URL(rawOrigin);
+            targetOrigin = parsed.origin;
+          } catch (e) {
+            console.warn('Invalid targetOrigin:', rawOrigin);
+          }
+        }
+        const fallbackOrigin = window.location.origin;
+        if (!targetOrigin && window.opener && !window.opener.closed) {
+          try { targetOrigin = window.opener.location.origin; } catch(e){}
+        }
+        if (!targetOrigin && window.parent && window.parent !== window) {
+          try { targetOrigin = window.parent.location.origin; } catch(e){}
+        }
+        if (!targetOrigin) {
+          targetOrigin = fallbackOrigin;
+        }
+
+        const dialog = document.getElementById('dialog');
+        const confirmBtn = document.getElementById('confirmBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+
+        confirmBtn.focus();
+
+        function sendResponse(action) {
+          const data = { action, fileName };
+          if (window.opener && !window.opener.closed) {
+            window.opener.postMessage(data, targetOrigin);
+          } else if (window.parent && window.parent !== window) {
+            window.parent.postMessage(data, targetOrigin);
+          }
+        }
+
+        function attemptClose() {
+          window.close();
+          setTimeout(() => {
+            if (!window.closed) {
+              dialog.innerHTML = '<p>This window could not be closed automatically. Please close it manually.</p>';
+              dialog.setAttribute('role', 'alert');
+            }
+          }, 300);
+        }
+
+        function confirmAction() {
+          sendResponse('confirmAiFileAddition');
+          attemptClose();
+        }
+
+        function cancelAction() {
+          sendResponse('cancelAiFileAddition');
+          attemptClose();
+        }
+
+        confirmBtn.addEventListener('click', confirmAction);
+        cancelBtn.addEventListener('click', cancelAction);
+
+        window.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelAction();
+          } else if (e.key === 'Tab') {
+            if (e.shiftKey) {
+              if (document.activeElement === confirmBtn) {
+                e.preventDefault();
+                cancelBtn.focus();
+              }
+            } else {
+              if (document.activeElement === cancelBtn) {
+                e.preventDefault();
+                confirmBtn.focus();
+              }
+            }
+          }
+        });
+      }
+
+      window.addEventListener('DOMContentLoaded', init);
+    })();
+  </script>
+</body>
+</html>
