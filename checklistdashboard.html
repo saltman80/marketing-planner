@@ -1,0 +1,223 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Marketing Planner - Checklist Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 0; }
+    header { background: #3f51b5; color: #fff; padding: 1rem; text-align: center; }
+    main { max-width: 800px; margin: 2rem auto; padding: 1rem; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-radius: 4px; }
+    #btn-back { margin-bottom: 1rem; background: #eee; color: #333; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
+    #btn-back:hover { background: #ddd; }
+    h2 { margin-top: 0; }
+    .checklist-item { border-bottom: 1px solid #ddd; padding: 1rem 0; }
+    .checklist-item:last-child { border-bottom: none; }
+    .checklist-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; }
+    .checklist-title { font-size: 1.1rem; margin: 0; flex: 1 1 auto; }
+    .checklist-meta { color: #666; font-size: 0.9rem; margin-right: 1rem; white-space: nowrap; }
+    .btn { margin: 0.25rem; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+    .btn:hover { opacity: 0.9; }
+    .btn-view { background: #1976d2; color: #fff; }
+    .btn-delete { background: #d32f2f; color: #fff; }
+    .btn-export { background: #388e3c; color: #fff; }
+    .checklist-details { margin-top: 0.5rem; display: none; }
+    .checklist-details ul { margin: 0; padding-left: 1.5rem; }
+    .no-data { text-align: center; color: #555; }
+    .no-data a { color: #1976d2; text-decoration: none; }
+    .no-data a:hover { text-decoration: underline; }
+    .hidden { display: none; }
+    .modal-overlay { position: fixed; top: 0; left: 0; width:100%; height:100%; background: rgba(0,0,0,0.5); display: flex; justify-content:center; align-items:center; z-index:1000; }
+    .modal { background: #fff; padding: 1rem; border-radius: 4px; max-width: 90%; width: 400px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    .modal-message { margin-bottom: 1rem; }
+    .modal-input-container { margin-bottom: 1rem; }
+    .modal-input-container textarea { width: 100%; height: 120px; resize: none; }
+    .modal-buttons { text-align: right; }
+    .modal-confirm { background: #d32f2f; color: #fff; }
+    .modal-cancel { background: #888; color: #fff; }
+    .modal-copy { background: #388e3c; color: #fff; }
+    .toast { position: fixed; bottom: 1rem; right: 1rem; background: rgba(0,0,0,0.8); color: #fff; padding: 0.75rem 1rem; border-radius: 4px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index:1001; }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <header><h1>Checklist Dashboard</h1></header>
+  <main>
+    <button id="btn-back">? Back to Planner</button>
+    <section id="dashboard">
+      <h2>Your Checklists</h2>
+      <div id="checklist-container"></div>
+    </section>
+  </main>
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div id="modal-message" class="modal-message"></div>
+      <div id="modal-input-container" class="modal-input-container hidden">
+        <textarea id="modal-textarea" readonly></textarea>
+      </div>
+      <div class="modal-buttons">
+        <button id="modal-confirm" class="btn modal-confirm">OK</button>
+        <button id="modal-cancel" class="btn modal-cancel hidden">Cancel</button>
+        <button id="modal-copy" class="btn modal-copy hidden">Copy</button>
+      </div>
+    </div>
+  </div>
+  <div id="toast" class="toast"></div>
+  <script>
+    (function(){
+      const modalOverlay = document.getElementById('modal-overlay');
+      const modalMessage = document.getElementById('modal-message');
+      const modalConfirmBtn = document.getElementById('modal-confirm');
+      const modalCancelBtn = document.getElementById('modal-cancel');
+      const modalCopyBtn = document.getElementById('modal-copy');
+      const modalInputContainer = document.getElementById('modal-input-container');
+      const modalTextarea = document.getElementById('modal-textarea');
+      const toastEl = document.getElementById('toast');
+      function showToast(message) {
+        toastEl.textContent = message;
+        toastEl.classList.add('show');
+        setTimeout(() => {
+          toastEl.classList.remove('show');
+        }, 3000);
+      }
+      function showModal(options) {
+        const { message = '', showCancel = false, showCopy = false, showInput = false, confirmText = 'OK' } = options;
+        modalMessage.textContent = message;
+        modalConfirmBtn.textContent = confirmText;
+        if (showCancel) modalCancelBtn.classList.remove('hidden'); else modalCancelBtn.classList.add('hidden');
+        if (showCopy) modalCopyBtn.classList.remove('hidden'); else modalCopyBtn.classList.add('hidden');
+        if (showInput) modalInputContainer.classList.remove('hidden'); else modalInputContainer.classList.add('hidden');
+        modalOverlay.classList.remove('hidden');
+        return new Promise(resolve => {
+          function cleanup() {
+            modalOverlay.classList.add('hidden');
+            modalConfirmBtn.removeEventListener('click', onConfirm);
+            modalCancelBtn.removeEventListener('click', onCancel);
+            modalCopyBtn.removeEventListener('click', onCopy);
+          }
+          function onConfirm() {
+            cleanup();
+            resolve(true);
+          }
+          function onCancel() {
+            cleanup();
+            resolve(false);
+          }
+          function onCopy() {
+            const text = modalTextarea.value;
+            navigator.clipboard.writeText(text).then(() => {
+              showToast('Checklist copied to clipboard');
+            });
+          }
+          modalConfirmBtn.addEventListener('click', onConfirm);
+          modalCancelBtn.addEventListener('click', onCancel);
+          modalCopyBtn.addEventListener('click', onCopy);
+        });
+      }
+      function showConfirm(message) {
+        return showModal({ message, showCancel: true, confirmText: 'Delete' });
+      }
+      function showCopyModal(text) {
+        modalTextarea.value = text;
+        return showModal({ message: 'Copy the checklist below:', showCopy: true, showInput: true, confirmText: 'Close' });
+      }
+      function init() {
+        const container = document.getElementById('checklist-container');
+        let items = [];
+        try {
+          let parsed = null;
+          const rawList = sessionStorage.getItem('marketingChecklists');
+          if (rawList) {
+            parsed = JSON.parse(rawList);
+          } else {
+            const rawLast = sessionStorage.getItem('lastChecklist');
+            if (rawLast) {
+              parsed = JSON.parse(rawLast);
+            }
+          }
+          if (Array.isArray(parsed)) {
+            items = parsed;
+          } else if (parsed && typeof parsed === 'object') {
+            items = [parsed];
+          }
+          items = items.filter(cl => cl && typeof cl === 'object').map(cl => ({
+            title: typeof cl.title === 'string' ? cl.title : '',
+            date: (typeof cl.date === 'string' || typeof cl.date === 'number') ? cl.date : Date.now(),
+            items: Array.isArray(cl.items) ? cl.items.filter(item => typeof item === 'string') : []
+          }));
+        } catch (e) { items = []; }
+        if (!items.length) {
+          container.innerHTML = '<p class="no-data">No checklists found. <a href="index.html">Create one now</a>.</p>';
+          return;
+        }
+        container.innerHTML = '';
+        items.forEach((cl, idx) => {
+          const item = document.createElement('div');
+          item.className = 'checklist-item';
+          const header = document.createElement('div');
+          header.className = 'checklist-header';
+          const title = document.createElement('p');
+          title.className = 'checklist-title';
+          title.textContent = cl.title || `Checklist ${idx+1}`;
+          const meta = document.createElement('span');
+          meta.className = 'checklist-meta';
+          const dateObj = new Date(cl.date);
+          meta.textContent = isNaN(dateObj.getTime()) ? '' : dateObj.toLocaleString();
+          const btnView = document.createElement('button');
+          btnView.className = 'btn btn-view';
+          btnView.textContent = 'View';
+          const btnExport = document.createElement('button');
+          btnExport.className = 'btn btn-export';
+          btnExport.textContent = 'Export';
+          const btnDelete = document.createElement('button');
+          btnDelete.className = 'btn btn-delete';
+          btnDelete.textContent = 'Delete';
+          header.append(title, meta, btnView, btnExport, btnDelete);
+          const details = document.createElement('div');
+          details.className = 'checklist-details';
+          const ul = document.createElement('ul');
+          (cl.items || []).forEach(step => {
+            const li = document.createElement('li');
+            li.textContent = step;
+            ul.appendChild(li);
+          });
+          details.appendChild(ul);
+          btnView.addEventListener('click', () => {
+            const isVisible = details.style.display === 'block';
+            details.style.display = isVisible ? 'none' : 'block';
+            btnView.textContent = isVisible ? 'View' : 'Hide';
+          });
+          btnDelete.addEventListener('click', async () => {
+            const confirmed = await showConfirm('Are you sure you want to delete this checklist?');
+            if (confirmed) {
+              items.splice(idx, 1);
+              sessionStorage.setItem('marketingChecklists', JSON.stringify(items));
+              init();
+            }
+          });
+          btnExport.addEventListener('click', () => {
+            const text = (cl.items || []).join('\n');
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(text).then(() => {
+                showToast('Checklist copied to clipboard');
+              }).catch(() => {
+                showCopyModal(text);
+              });
+            } else {
+              showCopyModal(text);
+            }
+          });
+          item.append(header, details);
+          container.appendChild(item);
+        });
+      }
+      document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('btn-back').addEventListener('click', () => {
+          if (document.referrer) history.back();
+          else window.location.href = 'index.html';
+        });
+        init();
+      });
+    })();
+  </script>
+</body>
+</html>
