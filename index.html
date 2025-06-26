@@ -1,0 +1,153 @@
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<title>Marketing Planner</title>
+<style>
+:root{--primary-color:#4CAF50;--bg-color:#f9f9f9;--text-color:#333;--card-bg:#fff;--card-shadow:rgba(0,0,0,0.1)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;line-height:1.6;color:var(--text-color);background:var(--bg-color)}
+header{background:var(--primary-color);padding:1rem;text-align:center;color:#fff}
+header h1{font-size:1.5rem}
+main{padding:1rem}
+.hero, #result-section{max-width:600px;margin:2rem auto;background:var(--card-bg);padding:2rem;border-radius:8px;box-shadow:0 2px 4px var(--card-shadow)}
+.hero h2, #result-section h2{margin-bottom:1rem}
+form{display:flex;flex-direction:column;gap:1rem}
+label{font-weight:bold}
+input[type=text]{padding:0.5rem;font-size:1rem;border:1px solid #ccc;border-radius:4px;width:100%}
+button{padding:0.75rem;font-size:1rem;color:#fff;background:var(--primary-color);border:none;border-radius:4px;cursor:pointer}
+button:disabled{background:#888;cursor:not-allowed}
+ol{padding-left:1.5rem}
+footer{text-align:center;padding:1rem;font-size:0.9rem;color:#666}
+.visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+</style>
+</head>
+<body onload="init()">
+<header>
+  <h1>Marketing Planner</h1>
+</header>
+<main>
+  <section class="hero">
+    <h2>AI-Driven Marketing Checklist Generator</h2>
+    <p>Instantly generate a 20-step marketing checklist for your software or app launch. Privacy-first. No tracking.</p>
+    <form id="planner-form">
+      <label for="project-name">Project Name</label>
+      <input type="text" id="project-name" name="projectName" required maxlength="100" pattern="^[-A-Za-z0-9 ]+$" title="Only letters, numbers, spaces, and hyphens allowed (max 100 characters)" placeholder="Enter your software or app name">
+      <button type="submit" id="generate-btn">Generate Checklist</button>
+    </form>
+  </section>
+  <section id="result-section" aria-live="polite" aria-hidden="true" class="visually-hidden">
+    <h2>Your Marketing Checklist</h2>
+    <div id="checklist"></div>
+  </section>
+</main>
+<footer>
+  <p>&copy; 2025 Marketing Planner. All rights reserved.</p>
+</footer>
+<noscript><div style="text-align:center;color:red;margin:1rem">JavaScript is required to generate your checklist.</div></noscript>
+<script>
+function init(){
+  const form = document.getElementById('planner-form');
+  const projectInput = document.getElementById('project-name');
+  const generateBtn = document.getElementById('generate-btn');
+  const resultSection = document.getElementById('result-section');
+  const checklistDiv = document.getElementById('checklist');
+
+  form.addEventListener('submit', async function(e){
+    e.preventDefault();
+    if(!projectInput.checkValidity()){
+      projectInput.reportValidity();
+      return;
+    }
+    const projectName = projectInput.value.trim();
+    if(!projectName) return;
+    const sanitizedName = projectName.replace(/[<>"]/g, '');
+    hideResult();
+    checklistDiv.textContent = 'Generating...';
+    generateBtn.disabled = true;
+    generateBtn.textContent = 'Generating...';
+    try{
+      const items = await generateChecklist(sanitizedName);
+      displayChecklist(items);
+      showResult();
+      sessionStorage.setItem('lastChecklist', JSON.stringify({ projectName: sanitizedName, items }));
+    } catch(err){
+      checklistDiv.textContent = 'Error generating checklist. Please try again.';
+      console.error(err);
+      showResult();
+    } finally {
+      generateBtn.disabled = false;
+      generateBtn.textContent = 'Generate Checklist';
+    }
+  });
+
+  const saved = sessionStorage.getItem('lastChecklist');
+  if(saved){
+    try{
+      const { projectName, items } = JSON.parse(saved);
+      if(projectName && items){
+        projectInput.value = projectName;
+        displayChecklist(items);
+        showResult();
+      }
+    } catch{}
+  }
+
+  function showResult(){
+    resultSection.setAttribute('aria-hidden','false');
+    resultSection.classList.remove('visually-hidden');
+  }
+  function hideResult(){
+    resultSection.setAttribute('aria-hidden','true');
+    resultSection.classList.add('visually-hidden');
+  }
+}
+
+async function generateChecklist(projectName){
+  const apiUrl = 'proxy.php';
+  const controller = new AbortController();
+  const timeout = setTimeout(()=>controller.abort(),60000);
+  const payload = {
+    model: 'openai/04-mini',
+    prompt: `Please provide the checklist as a JSON array of strings.
+Generate a detailed 20-step marketing checklist for launching the following software or app:
+"${projectName}"`,
+    max_tokens: 600,
+    temperature: 0.7
+  };
+  const resp = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload),
+    signal: controller.signal
+  });
+  clearTimeout(timeout);
+  if(!resp.ok) throw new Error('Network response was not ok');
+  const data = await resp.json();
+  const rawText = (data.choices?.[0]?.message?.content || data.choices?.[0]?.text || data.text || data.result || '').trim();
+  let items;
+  try {
+    items = JSON.parse(rawText);
+    if(!Array.isArray(items)) throw new Error('Invalid JSON array');
+  } catch {
+    const parts = rawText.split(/\r?\n\s*(?:\d+[\.\)]\s*)+/).filter(Boolean);
+    items = parts.map(item=>item.trim());
+  }
+  return items;
+}
+
+function displayChecklist(items){
+  const checklistDiv = document.getElementById('checklist');
+  checklistDiv.innerHTML = '';
+  const ol = document.createElement('ol');
+  items.forEach(item => {
+    const li = document.createElement('li');
+    li.textContent = item;
+    ol.appendChild(li);
+  });
+  checklistDiv.appendChild(ol);
+}
+</script>
+</body>
+</html>
